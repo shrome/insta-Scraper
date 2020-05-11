@@ -7,7 +7,7 @@ import hmac
 import time
 import six.moves.urllib as urllib
 from tqdm import tqdm
-from requestium import Session, Keys 
+from requestium import Session, Keys
 import logging
 
 DEVICE_SETTINTS = {
@@ -17,8 +17,11 @@ DEVICE_SETTINTS = {
     'android_version': 26,
     'android_release': '8.0'
 }
-#41.0.0.13.92
 
+
+# 41.0.0.13.92
+
+array = []
 
 class API:
     def __init__(self, path):
@@ -27,8 +30,8 @@ class API:
         self.IG_SIG_KEY = '4f8732eb9ba7d1c8e8897a75d6474d4eb3f5279137431b2aafb71fafe2abe178'
         self.SIG_KEY_VERSION = '4'
         self.USER_AGENT = 'Instagram 10.26.0 Android ({android_version}/{android_release}; 640dpi; 1440x2560; {manufacturer}; {device}; {model}; samsungexynos8890; en_US)'.format(
-    **DEVICE_SETTINTS)
-        self.s = Session(webdriver_path= path, browser='chrome',default_timeout=15)
+            **DEVICE_SETTINTS)
+        self.s = Session(webdriver_path=path, browser='chrome', default_timeout=15)
         self.logger = logging.getLogger('[instatesi_{}]'.format(id(self)))
         self.privateUsers = {}
         self.users = {}
@@ -45,33 +48,38 @@ class API:
         self.logger.addHandler(ch)
         self.logger.setLevel(logging.DEBUG)
         self.lastUserHandled = None
-    
+
     def saveScrapedFollowers(self):
         import json
+        from openpyxl import Workbook
+        workbook = Workbook()
+        sheet = workbook.active
         self.logger.info("Except for the selected Followers...")
-        if not os.path.exists(os.getcwd()+"/ScrapedFollowers/"+self.lastUserHandled +".txt"):
-            with open(os.getcwd()+"/ScrapedFollowers/" + self.lastUserHandled + ".txt", "w") as f:
-                """ f.write("Scraped following from " + self.lastUserHandled +"\n")
-                f.write("-------Non private users-------\n")
-                f.write(json.dumps(self.users[''], indent=2))
-                f.write("\n-------Private users-------\n")
-                f.write(json.dumps(self.privateUsers, indent=2)) """
-                for k, v in self.users.items():
-                    f.write(k + ',\n')
+        if not os.path.exists(os.getcwd() + self.lastUserHandled + ".xlsx"):
+            """ f.write("Scraped following from " + self.lastUserHandled +"\n")
+            f.write("-------Non private users-------\n")
+            f.write(json.dumps(self.users[''], indent=2))
+            f.write("\n-------Private users-------\n")
+            f.write(json.dumps(self.privateUsers, indent=2)) """
+            for k, v in self.users.items():
+                array.append(k)
+            for s in range(len(array)):
+                sheet["B{name}".format(name=str(s+1))] = array[s]
+            workbook.save(filename="{hello}.xlsx".format(hello=self.lastUserHandled))
             self.logger.info("Following successfully saved!")
             self.users = dict()
             self.privateUsers = dict()
 
         else:
             self.logger.warning("Warning! The user is already present in the database. Overwrite?")
-            #Define some logic for file overwriting
-    
+            # Define some logic for file overwriting
+
     def saveScrapedFollowing(self):
         import json
         self.logger.info("Except for the Following's Following...")
-        if not os.path.exists(os.getcwd()+"/ScrapedFollowing/"+self.lastUserHandled +".txt"):
-            with open(os.getcwd()+"/ScrapedFollowing/" + self.lastUserHandled + ".txt", "w") as f:
-                f.write("Scraped following from " + self.lastUserHandled +"\n")
+        if not os.path.exists(os.getcwd() + "/ScrapedFollowing/" + self.lastUserHandled + ".txt"):
+            with open(os.getcwd() + "/ScrapedFollowing/" + self.lastUserHandled + ".txt", "w") as f:
+                f.write("Scraped following from " + self.lastUserHandled + "\n")
                 f.write("-------Non private users-------\n")
                 f.write(json.dumps(self.users, indent=2))
                 f.write("\n-------Private users-------\n")
@@ -81,33 +89,32 @@ class API:
             self.privateUsers = dict()
         else:
             self.logger.warning("Warning! The user is already present in the database. Overwrite?")
-            #Define some logic for file overwriting
-    
-    def getUserFollowers(self,userID, rank_token, selection="followers"):
-        self.logger.info("User ID follower scraping started " +str(userID))
-        followers = self.getTotalFollowers(userID, rank_token, fromInput= selection)
+            # Define some logic for file overwriting
+
+    def getUserFollowers(self, userID, rank_token, selection="followers"):
+        self.logger.info("User ID follower scraping started " + str(userID))
+        followers = self.getTotalFollowers(userID, rank_token, fromInput=selection)
         return [str(item['username']) for item in followers][::-1] if followers else []
-    
-    def __getUsernameInfo(self,usernameId):
+
+    def __getUsernameInfo(self, usernameId):
         return self.__send_request('users/' + str(usernameId) + '/info/')
-    
-    def __send_request_for_user_followers(self,user_id, rank_token, max_id='', selection="followers"):
-        url = 'friendships/{user_id}/followers/?rank_token={rank_token}' if selection=="followers" else 'friendships/{user_id}/following/?max_id={max_id}&ig_sig_key_version={sig_key}&rank_token={rank_token}'
-        url = url.format(user_id=user_id, rank_token=rank_token) if selection=="followers" else url.format(
+
+    def __send_request_for_user_followers(self, user_id, rank_token, max_id='', selection="followers"):
+        url = 'friendships/{user_id}/followers/?rank_token={rank_token}' if selection == "followers" else 'friendships/{user_id}/following/?max_id={max_id}&ig_sig_key_version={sig_key}&rank_token={rank_token}'
+        url = url.format(user_id=user_id, rank_token=rank_token) if selection == "followers" else url.format(
             user_id=user_id,
             max_id=max_id,
             sig_key=self.SIG_KEY_VERSION,
-            
+
             rank_token=rank_token)
         if max_id:
             url += '&max_id={max_id}'.format(max_id=max_id)
         return self.__send_request(url)
 
-    def searchUsername(self,username):
+    def searchUsername(self, username):
         url = 'users/{username}/usernameinfo/'.format(username=username)
         self.logger.info("Looking for user information " + username)
         return self.__send_request(url)
-    
 
     def getUsernameFromID(self, user_id):
         url = 'users/{user_id}/info/'.format(user_id=user_id)
@@ -115,12 +122,13 @@ class API:
         self.logger.info("Return the requested username, or " + str(self.last_json['user']['username']))
         return self.last_json['user']['username']
 
-    def __generateSignature(self,data, IG_SIG_KEY, SIG_KEY_VERSION):
-        body = hmac.new(IG_SIG_KEY.encode('utf-8'), data.encode('utf-8'),hashlib.sha256).hexdigest() + '.' + urllib.parse.quote(data)
+    def __generateSignature(self, data, IG_SIG_KEY, SIG_KEY_VERSION):
+        body = hmac.new(IG_SIG_KEY.encode('utf-8'), data.encode('utf-8'),
+                        hashlib.sha256).hexdigest() + '.' + urllib.parse.quote(data)
         signature = 'ig_sig_key_version={sig_key}&signed_body={body}'
         return signature.format(sig_key=SIG_KEY_VERSION, body=body)
-    
-    def castUsernameToUserID(self,usernameToLook):
+
+    def castUsernameToUserID(self, usernameToLook):
         self.lastUserHandled = usernameToLook
         userID = ""
         self.searchUsername(usernameToLook)
@@ -128,18 +136,19 @@ class API:
             userID = str(self.last_json["user"]["pk"])
         self.logger.info("The username " + usernameToLook + " corresponds to the ID " + userID)
         return userID
-    
+
     def seeStories(self):
         self.__send_request("feed/reels_tray/")
         return self.last_json
 
-    def getTotalFollowers(self,usernameId, rank_token, fromInput = "followers"):
+    def getTotalFollowers(self, usernameId, rank_token, fromInput="followers"):
         sleep_track = 0
         followers = []
         next_max_id = ''
         self.__getUsernameInfo(usernameId)
         if "user" in self.last_json:
-            total_followers = self.last_json["user"]['follower_count'] if fromInput =="followers" else self.last_json["user"]['following_count']
+            total_followers = self.last_json["user"]['follower_count'] if fromInput == "followers" else \
+            self.last_json["user"]['following_count']
             if total_followers > 200000:
                 self.logger.warning("There are over 200,000 followers. It may take a while.")
         else:
@@ -153,7 +162,7 @@ class API:
                     for item in temp["users"]:
                         if item['is_private']:
                             self.privateUsers[item['username']] = {
-                                'ID' : item['pk'],
+                                'ID': item['pk'],
                                 'user_handle': item['username'],
                                 'is_verified': item['is_verified'],
                                 'is_private': item['is_private'],
@@ -162,7 +171,7 @@ class API:
                             }
                         else:
                             self.users[item['username']] = {
-                                'ID' : item['pk'],
+                                'ID': item['pk'],
                                 'user_handle': item['username'],
                                 'is_private': item['is_private'],
                                 'is_verified': item['is_verified'],
@@ -173,22 +182,26 @@ class API:
                         sleep_track += 1
                         if sleep_track >= 20000:
                             import random
-                            sleep_time = random.randint(120,180)
-                            self.logger.info("Waiting for " + str(float(sleep_time / 60)) + " due to excessive demands.")
+                            sleep_time = random.randint(120, 180)
+                            self.logger.info(
+                                "Waiting for " + str(float(sleep_time / 60)) + " due to excessive demands.")
                             time.sleep(sleep_time)
                             sleep_track = 0
                     if len(temp["users"]) == 0 or len(followers) >= total_followers:
-                        self.logger.info("Returning account followers in the scraping phase, ie " +str(len(followers[:total_followers])))
+                        self.logger.info("Returning account followers in the scraping phase, ie " + str(
+                            len(followers[:total_followers])))
                         return followers[:total_followers]
                 except Exception:
-                    self.logger.error("Returning account followers in the scraping phase, ie " +str(len(followers[:total_followers])))
+                    self.logger.error("Returning account followers in the scraping phase, ie " + str(
+                        len(followers[:total_followers])))
                     return followers[:total_followers]
                 if temp["big_list"] is False:
-                    self.logger.info("Returning account followers in the scraping phase, ie " +str(len(followers[:total_followers])))
+                    self.logger.info("Returning account followers in the scraping phase, ie " + str(
+                        len(followers[:total_followers])))
                     return followers[:total_followers]
                 next_max_id = temp["next_max_id"]
 
-    def __send_request(self,endpoint, post=None, login=False, with_signature=True):
+    def __send_request(self, endpoint, post=None, login=False, with_signature=True):
         self.s.headers.update({
             'Connection': 'close',
             'Accept': '*/*',
